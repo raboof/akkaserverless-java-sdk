@@ -71,3 +71,7 @@ $ exists target/scala-2.13/src_managed/main/akkaserverless/com/example/valueenti
 $ exists src/test/scala/com/example/valueentity/domain/SomeValueEntitySpec.scala
 $ exists src/test/scala/com/example/valueentity/domain/SomeValueEntityIntegrationSpec.scala
 $ exists target/scala-2.13/src_managed/test/akkaserverless/com/example/valueentity/domain/SomeValueEntityTestKit.scala
+
+$ pause
+> IntegrationTest/compile
+$ exists src/it/scala/com/example/valueentity/comain/SomeValueEntityIntegrationSpec.scala

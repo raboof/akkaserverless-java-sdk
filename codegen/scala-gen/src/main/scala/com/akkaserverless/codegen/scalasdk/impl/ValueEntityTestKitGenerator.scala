@@ -22,14 +22,17 @@ import com.lightbend.akkasls.codegen.{ Format, FullyQualifiedName, ModelBuilder 
 object ValueEntityTestKitGenerator {
   import com.lightbend.akkasls.codegen.SourceGeneratorUtils._
 
-  def generateUnmanagedTest(
-      main: FullyQualifiedName,
-      valueEntity: ModelBuilder.ValueEntity,
-      service: ModelBuilder.EntityService): Seq[File] =
-    Seq(test(valueEntity, service), integrationTest(main, valueEntity, service))
+  def generateUnmanagedTest(valueEntity: ModelBuilder.ValueEntity, service: ModelBuilder.EntityService): Seq[File] =
+    Seq(test(valueEntity, service))
 
   def generateManagedTest(valueEntity: ModelBuilder.ValueEntity, service: ModelBuilder.EntityService): Seq[File] =
     Seq(testkit(valueEntity, service))
+
+  def generateUnmanagedIntegrationTest(
+      main: FullyQualifiedName,
+      valueEntity: ModelBuilder.ValueEntity,
+      service: ModelBuilder.EntityService): Seq[File] =
+    Seq(integrationTest(main, valueEntity, service))
 
   private[codegen] def testkit(valueEntity: ModelBuilder.ValueEntity, service: ModelBuilder.EntityService): File = {
     implicit val imports: Imports =
@@ -232,4 +235,5 @@ object ValueEntityTestKitGenerator {
           |}
           |""".stripMargin)
   }
+
 }

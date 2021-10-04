@@ -27,6 +27,7 @@ import com.akkaserverless.codegen.scalasdk.{
   gen,
   genTests,
   genUnmanaged,
+  genUnmanagedIntegrationTest,
   genUnmanagedTest,
   AkkaserverlessGenerator,
   BuildInfo
@@ -55,54 +56,72 @@ object AkkaserverlessPlugin extends AutoPlugin {
 
   val AkkaServerlessSdkVersion = BuildInfo.version
 
-  override def projectSettings: Seq[sbt.Setting[_]] = Seq(
-    libraryDependencies ++= Seq(
-      "com.akkaserverless" % "akkaserverless-sdk-protocol" % "0.7.0" % "protobuf-src",
-      "com.google.protobuf" % "protobuf-java" % "3.17.3" % "protobuf",
-      "com.akkaserverless" %% "akkaserverless-scala-sdk-testkit" % AkkaServerlessSdkVersion % Test),
-    Compile / PB.targets +=
-      gen(
-        akkaGrpcCodeGeneratorSettings.value :+ AkkaserverlessGenerator.enableDebug) -> (Compile / sourceManaged).value / "akkaserverless",
-    Compile / temporaryUnmanagedDirectory := (Compile / baseDirectory).value / "target" / "akkaserverless-unmanaged",
-    Test / temporaryUnmanagedDirectory := (Test / baseDirectory).value / "target" / "akkaserverless-unmanaged-test",
-    // FIXME there is a name clash between the Akka gRPC server-side service 'handler'
-    // and the Akka Serverless 'handler'. For now working around it by only generating
-    // the client, but we should probably resolve this before the first public release.
-    Compile / akkaGrpcGeneratedSources := Seq(AkkaGrpc.Client),
-    Compile / PB.targets ++= Seq(genUnmanaged(
-      akkaGrpcCodeGeneratorSettings.value :+ AkkaserverlessGenerator.enableDebug) -> (Compile / temporaryUnmanagedDirectory).value),
-    Test / PB.targets ++= Seq(genUnmanagedTest(
-      akkaGrpcCodeGeneratorSettings.value :+ AkkaserverlessGenerator.enableDebug) -> (Test / temporaryUnmanagedDirectory).value),
-    Test / PB.protoSources ++= (Compile / PB.protoSources).value,
-    Test / PB.targets +=
-      genTests(
-        akkaGrpcCodeGeneratorSettings.value :+ AkkaserverlessGenerator.enableDebug) -> (Test / sourceManaged).value / "akkaserverless",
-    Compile / generateUnmanaged := {
-      Files.createDirectories(Paths.get((Compile / temporaryUnmanagedDirectory).value.toURI))
-      // Make sure generation has happened
-      val _ = (Compile / PB.generate).value
-      // Then copy over any new generated unmanaged sources
-      copyIfNotExist(
-        Paths.get((Compile / temporaryUnmanagedDirectory).value.toURI),
-        Paths.get((Compile / sourceDirectory).value.toURI).resolve("scala"))
-    },
-    Test / generateUnmanaged := {
-      Files.createDirectories(Paths.get((Test / temporaryUnmanagedDirectory).value.toURI))
-      // Make sure generation has happened
-      val _ = (Test / PB.generate).value
-      // Then copy over any new generated unmanaged sources
-      copyIfNotExist(
-        Paths.get((Test / temporaryUnmanagedDirectory).value.toURI),
-        Paths.get((Test / sourceDirectory).value.toURI).resolve("scala"))
-    },
-    Compile / managedSources :=
-      (Compile / managedSources).value.filter(s => !isIn(s, (Compile / temporaryUnmanagedDirectory).value)),
-    Compile / unmanagedSources :=
-      (Compile / generateUnmanaged).value ++ (Compile / unmanagedSources).value,
-    Test / managedSources :=
-      (Test / managedSources).value.filter(s => !isIn(s, (Test / temporaryUnmanagedDirectory).value)),
-    Test / unmanagedSources :=
-      (Test / generateUnmanaged).value ++ (Test / unmanagedSources).value)
+  override def projectSettings: Seq[sbt.Setting[_]] =
+//    configs(IntegrationTest) ++
+    Defaults.itSettings ++
+    inConfig(IntegrationTest)(protobufConfigSettings) ++ Seq(
+      libraryDependencies ++= Seq(
+        "com.akkaserverless" % "akkaserverless-sdk-protocol" % "0.7.0-beta.19" % "protobuf-src",
+        "com.google.protobuf" % "protobuf-java" % "3.17.3" % "protobuf",
+        "com.akkaserverless" %% "akkaserverless-scala-sdk-testkit" % AkkaServerlessSdkVersion % Test),
+      Compile / PB.targets +=
+        gen(
+          akkaGrpcCodeGeneratorSettings.value :+ AkkaserverlessGenerator.enableDebug) -> (Compile / sourceManaged).value / "akkaserverless",
+      Compile / temporaryUnmanagedDirectory := (Compile / baseDirectory).value / "target" / "akkaserverless-unmanaged",
+      Test / temporaryUnmanagedDirectory := (Test / baseDirectory).value / "target" / "akkaserverless-unmanaged-test",
+      IntegrationTest / temporaryUnmanagedDirectory := (IntegrationTest / baseDirectory).value / "target" / "akkaserverless-unmanaged-it",
+      // FIXME there is a name clash between the Akka gRPC server-side service 'handler'
+      // and the Akka Serverless 'handler'. For now working around it by only generating
+      // the client, but we should probably resolve this before the first public release.
+      Compile / akkaGrpcGeneratedSources := Seq(AkkaGrpc.Client),
+      Compile / PB.targets ++= Seq(genUnmanaged(
+        akkaGrpcCodeGeneratorSettings.value :+ AkkaserverlessGenerator.enableDebug) -> (Compile / temporaryUnmanagedDirectory).value),
+      Test / PB.targets ++= Seq(genUnmanagedTest(
+        akkaGrpcCodeGeneratorSettings.value :+ AkkaserverlessGenerator.enableDebug) -> (Test / temporaryUnmanagedDirectory).value),
+      IntegrationTest / PB.targets ++= Seq(genUnmanagedIntegrationTest(
+        akkaGrpcCodeGeneratorSettings.value :+ AkkaserverlessGenerator.enableDebug) -> (IntegrationTest / temporaryUnmanagedDirectory).value),
+      Test / PB.protoSources ++= (Compile / PB.protoSources).value,
+      Test / PB.targets +=
+        genTests(
+          akkaGrpcCodeGeneratorSettings.value :+ AkkaserverlessGenerator.enableDebug) -> (Test / sourceManaged).value / "akkaserverless",
+      IntegrationTest / PB.protoSources ++= (Test / PB.protoSources).value,
+      Compile / generateUnmanaged := {
+        Files.createDirectories(Paths.get((Compile / temporaryUnmanagedDirectory).value.toURI))
+        // Make sure generation has happened
+        val _ = (Compile / PB.generate).value
+        // Then copy over any new generated unmanaged sources
+        copyIfNotExist(
+          Paths.get((Compile / temporaryUnmanagedDirectory).value.toURI),
+          Paths.get((Compile / sourceDirectory).value.toURI).resolve("scala"))
+      },
+      Test / generateUnmanaged := {
+        Files.createDirectories(Paths.get((Test / temporaryUnmanagedDirectory).value.toURI))
+        // Make sure generation has happened
+        val _ = (Test / PB.generate).value
+        // Then copy over any new generated unmanaged sources
+        copyIfNotExist(
+          Paths.get((Test / temporaryUnmanagedDirectory).value.toURI),
+          Paths.get((Test / sourceDirectory).value.toURI).resolve("scala"))
+      },
+      IntegrationTest / generateUnmanaged := {
+        Files.createDirectories(Paths.get((IntegrationTest / temporaryUnmanagedDirectory).value.toURI))
+        // Make sure generation has happened
+        val _ = (IntegrationTest / PB.generate).value
+        // Then copy over any new generated unmanaged sources
+        copyIfNotExist(
+          Paths.get((IntegrationTest / temporaryUnmanagedDirectory).value.toURI),
+          Paths.get((IntegrationTest / sourceDirectory).value.toURI).resolve("scala"))
+      },
+      Compile / managedSources :=
+        (Compile / managedSources).value.filter(s => !isIn(s, (Compile / temporaryUnmanagedDirectory).value)),
+      Compile / unmanagedSources :=
+        (Compile / generateUnmanaged).value ++ (Compile / unmanagedSources).value,
+      Test / managedSources :=
+        (Test / managedSources).value.filter(s => !isIn(s, (Test / temporaryUnmanagedDirectory).value)),
+      Test / unmanagedSources :=
+        (Test / generateUnmanaged).value ++ (Test / unmanagedSources).value,
+      IntegrationTest / unmanagedSources :=
+        (IntegrationTest / generateUnmanaged).value ++ (IntegrationTest / unmanagedSources).value)
 
   def isIn(file: File, dir: File): Boolean =
     Paths.get(file.toURI).startsWith(Paths.get(dir.toURI))

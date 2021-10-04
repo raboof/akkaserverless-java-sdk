@@ -99,10 +99,7 @@ object SourceGenerator {
         case service: ModelBuilder.EntityService =>
           model.lookupEntity(service) match {
             case entity: ModelBuilder.ValueEntity =>
-              ValueEntityTestKitGenerator.generateUnmanagedTest(
-                MainSourceGenerator.mainClassName(model),
-                entity,
-                service)
+              ValueEntityTestKitGenerator.generateUnmanagedTest(entity, service)
             case _: ModelBuilder.EventSourcedEntity =>
               Nil // FIXME
             case _: ModelBuilder.ReplicatedEntity =>
@@ -115,4 +112,24 @@ object SourceGenerator {
       }
       .map(_.prepend(unmanagedComment))
       .toList
+
+  def generateUnmanagedIntegrationTest(model: ModelBuilder.Model): Seq[File] =
+    model.services.values.flatMap {
+      case service: ModelBuilder.EntityService =>
+        model.lookupEntity(service) match {
+          case entity: ModelBuilder.ValueEntity =>
+            ValueEntityTestKitGenerator.generateUnmanagedIntegrationTest(
+              MainSourceGenerator.mainClassName(model),
+              entity,
+              service)
+          case _: ModelBuilder.EventSourcedEntity =>
+            Nil // FIXME
+          case _: ModelBuilder.ReplicatedEntity =>
+            Nil
+        }
+      case _: ModelBuilder.ViewService =>
+        Nil
+      case _: ModelBuilder.ActionService =>
+        Nil
+    }.toList
 }
